@@ -1,14 +1,28 @@
 Package: JHCovidHelpers
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Help functions for John Hopkins Covid Data 
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Author: Nicolas Vecchione
+Maintainer: Nicolas Vecchione <cuisquare@gmail.com>
+Description: provides functions to extract fresh data, tidy data, provide relevant calcuated variables and plotting helpers. 
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+RoxygenNote: 7.1.2
+Imports: 
+    tidyr,
+    readr,
+    zoo,
+    dplyr,
+    lubridate,
+    magrittr,
+    rlang,
+    ggplot2,
+    forcats,
+    stringr,
+    xml2,
+    rvest,
+    stringi
