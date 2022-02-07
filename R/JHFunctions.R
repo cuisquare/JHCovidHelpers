@@ -1,3 +1,6 @@
+#data(sysdata, envir=environment())
+
+
 ##Data extraction ####
 
 #' Gets data from web
@@ -25,24 +28,31 @@ getDataFromWeb <- function(destfolder = tempdir()) {
   data_file_vaccines <- "time_series_covid19_vaccine_global.csv"
   #datasource_choice <- "DirectDownload" #"GithubPull" #""LocalDrectory"
   #getting death and cases data
-  data_folder_casesdeaths <- destfolder
   remote_url_root <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
   file_list_cases_death <- c(data_file_deaths,data_file_recovered,data_file_confirmed)
   for (filename in file_list_cases_death) {
+    destfile <- paste0(destfolder,"\\",filename)
+    source_url <- paste0(remote_url_root,"/",filename)
+    print(paste("source_url =",source_url))
+    print(paste("destfile =",destfile))
     try(
       download.file(
-        url = paste0(remote_url_root,"/",filename),
-        destfile = paste0(data_folder_casesdeaths,"/",filename)
+        url = source_url,
+        destfile = destfile
       )
     )
   }
   #getting vacine data
   data_folder_vaccines <- destfolder
   remote_url_root_vaccines <- "https://raw.githubusercontent.com/govex/COVID-19/master/data_tables/vaccine_data/global_data/"
+  destfile_vaccine <- paste0(destfolder,"\\",data_file_vaccines)
+  source_url_vaccine <- paste0(remote_url_root_vaccines,"/",data_file_vaccines)
+  print(paste("source_url_vaccine =",source_url_vaccine))
+  print(paste("destfile_vaccine =",destfile_vaccine))
   try(
     download.file(
-      url = paste0(remote_url_root_vaccines,"/",data_file_vaccines),
-      destfile = paste0(data_folder_vaccines,"/",data_file_vaccines)
+      url = source_url_vaccine,
+      destfile = destfile_vaccine
     )
   )
   #TODO write
@@ -50,7 +60,7 @@ getDataFromWeb <- function(destfolder = tempdir()) {
 
 
   ##Deaths
-  master_data_raw_deaths <- readr::read_csv(paste(data_folder_casesdeaths,data_file_deaths,sep="/"))
+  master_data_raw_deaths <- readr::read_csv(paste0(c(destfolder,data_file_deaths),collapse ="\\"))
 
   #TODO: ? get data with old metric for death in UK using this link:
   #https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/909660/COVID-19_Death_Series_20200816.xlsx
@@ -66,7 +76,7 @@ getDataFromWeb <- function(destfolder = tempdir()) {
     dplyr::rename(Country_Region = `Country/Region`, Province_State = `Province/State`)
 
   ##Confirmed Cases
-  master_data_raw_confirmed <- readr::read_csv(paste(data_folder_casesdeaths,data_file_confirmed,sep="/"))
+  master_data_raw_confirmed <- readr::read_csv(paste0(c(destfolder,data_file_confirmed),collapse ="\\"))
 
   #change into tidy data
   master_data_confirmed <- master_data_raw_confirmed %>%
@@ -81,7 +91,7 @@ getDataFromWeb <- function(destfolder = tempdir()) {
     dplyr::rename(Country_Region = `Country/Region`, Province_State = `Province/State`)
 
   ##Recovered Cases
-  master_data_raw_recovered <- readr::read_csv(paste(data_folder_casesdeaths,data_file_recovered,sep="/"))
+  master_data_raw_recovered <- readr::read_csv(paste0(c(destfolder,data_file_recovered),collapse ="\\"))
 
   #change into tidy data
   master_data_recovered <- master_data_raw_recovered %>%
@@ -96,7 +106,9 @@ getDataFromWeb <- function(destfolder = tempdir()) {
     dplyr::rename(Country_Region = `Country/Region`, Province_State = `Province/State`)
 
   ##vaccine data
-  try(master_data_raw_vaccine <- readr::read_csv(file = paste(data_folder_vaccines,data_file_vaccines,sep="/")))
+  try(
+    master_data_raw_vaccine <-  readr::read_csv(paste0(c(destfolder,data_file_vaccines),collapse ="\\"))
+    )
   if (exists("master_data_raw_vaccine")) {
     master_data_vaccine  <- master_data_raw_vaccine
   }
@@ -318,27 +330,40 @@ JHGetdata_CountryLevel <- function(JH_Data,CountryList,VarName) {
 
 }
 
+#' get latest available date in JH data
+#'
+#' @param JH_Data JHData format dataframe
+#' @param CountryName character valid country name
+#'
+#' @return latest available date
+#' @export
+#'
+#' @examples #TODO
 getLatestAvailableDate <- function(JH_Data,CountryName) {
   JH_Data %>%
     filter(Country_Region == CountryName) %>%
     pull(Date) %>%
-    max()
+    max(na.rm = TRUE)
 }
 
-getLatestDataSimple <- function(JH_Data,CountryName) {
-  LatestAvailableDate <- getLatestAvailableDate(JH_Data,CountryName)
-
-  JH_Data %>%
-    filter(Country_Region == CountryName) %>%
-    filter(Date == LatestAvailableDate)
-}
-
+#' get latest available JH Data over a days span
+#'
+#' @param JH_Data JH formatted data source (raw or augmented)
+#' @param CountryList character list of countries to be extracted
+#' @param spanDays number of days to look back start from latest available date in JH_Data.
+#' If unspecified, defaults to a span of one day (latest available date)
+#'
+#' @return dataframe with the latest available data as specified by parameters
+#' @export
+#'
+#' @examples #TODO
 getLatestData <- function(JH_Data,CountryList,spanDays=FALSE) {
 
   LatestAvailableDate <- lubridate::as_date(min(sapply(CountryList,
                                             FUN=function(CN) {
-                                              lubridate::as_date(getLatestAvailableDate(master_data,CN))})))
+                                              lubridate::as_date(getLatestAvailableDate(JH_Data,CN))}),na.rm = TRUE))
 
+  print(paste("LatestAvailableDate =",LatestAvailableDate))
   print(paste("spanDays =",spanDays))
 
   if (spanDays==FALSE | !(is.numeric(spanDays))) {
@@ -381,13 +406,22 @@ bottom_N_CountryLevel <- function(JH_Data,VarName,nbottom,datebottom) {
   return(thedata)
 }
 
-JHGetProgress <- function(JH_Data,CountryList,VarName) {
-  CountryList <- c("United Kingdom","France","Italy","Germany","Belgium","Greece")
 
+#' Get latest variation
+#'
+#' @param JH_Aug_Data JH formatted data source (raw or augmented)
+#' @param CountryList character list of countries to be extracted
+#' @param VarName character JHData compatible variable name
+#'
+#' @return dataframe
+#' @export
+#'
+#' @examples #TODO
+JHGetProgress <- function(JH_Aug_Data,CountryList,VarName) {
   pos_min <- function(x) {
     min(x[x>0])
   }
-  Progress <- master_data %>%
+  Progress <- JH_Aug_Data %>%
     filter(Country_Region %in% CountryList & is.na(Province_State)) %>%
     filter(Date > lubridate::ymd("20200401")) %>%
     group_by(Country_Region,Population) %>%
@@ -397,7 +431,7 @@ JHGetProgress <- function(JH_Data,CountryList,VarName) {
     dplyr::rename(!!as.name(paste("min_",VarName,sep="")) := !!as.name("fn1"),
            !!as.name(paste("max_",VarName,sep="")) := !!as.name("fn2"))
 
-  LatestData <- master_data %>%
+  LatestData <- JH_Aug_Data %>%
     filter(is.na(Province_State)) %>%
     getLatestData(CountryList) %>%
     select(Country_Region,!!as.name(VarName))
@@ -493,6 +527,19 @@ JHGetplot_CountryLevel_MultipleVar <- function(JH_Data,CountryList,VarNames) {
   return(theplot)
 }
 
+#' Get ggplot plot of Single Variables for a list of Country
+#'
+#' @param JH_Data data frame containing JH Data
+#' @param CountryList character list of countries
+#' @param VarName character variable name in JH_Data to be extracted
+#' @param add_label boolean on whether to add a label to the curve
+#' @param adjust_label boolean on whether to adjust the label
+#' @param mindiffval minimum value difference assured in case of label adjustmment
+#'
+#' @return ggplot of the variable with colour by country
+#' @export
+#'
+#' @examples #TODO
 JHGetplot_CountryLevel <- function(JH_Data,CountryList,VarName,add_label = FALSE,adjust_label = FALSE, mindiffval = 5) {
   VarNameString <- VarName
   VarName <- sym(VarName)
