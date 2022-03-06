@@ -425,11 +425,14 @@ JHGetProgress <- function(JH_Aug_Data,CountryList,VarName) {
     filter(Country_Region %in% CountryList & is.na(Province_State)) %>%
     filter(Date > lubridate::ymd("20200401")) %>%
     group_by(Country_Region,Population) %>%
-    summarise_at(VarName,list(pos_min, max))
+    summarise_at(VarName,list(pos_min, max,mean))
 
   Progress <- Progress %>%
-    dplyr::rename(!!as.name(paste("min_",VarName,sep="")) := !!as.name("fn1"),
-           !!as.name(paste("max_",VarName,sep="")) := !!as.name("fn2"))
+    dplyr::rename(
+      !!as.name(paste("min_",VarName,sep="")) := !!as.name("fn1"),
+      !!as.name(paste("max_",VarName,sep="")) := !!as.name("fn2"),
+      !!as.name(paste("avg_",VarName,sep="")) := !!as.name("fn3")
+      )
 
   LatestData <- JH_Aug_Data %>%
     filter(is.na(Province_State)) %>%
