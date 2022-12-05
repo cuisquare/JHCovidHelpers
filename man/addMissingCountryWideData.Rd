@@ -10,7 +10,7 @@ addMissingCountryWideData(JH_Data)
 \item{JH_Data}{dataframe containing expected John Hopkins data}
 }
 \value{
-datafram containing expected John Hopkins data with country wide
+dataframe containing expected John Hopkins data with country wide
 data added for countries that have only regional data - currently Canada,
 Australia and China
 }

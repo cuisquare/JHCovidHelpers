@@ -3,25 +3,17 @@
 
 ##Data extraction ####
 
-#' Gets data from web
+
+#' @title getRawDataFromWeb
 #'
 #' @param destfolder destination folder for downloaded files.
 #'
 #' @return master_data data frame containing deaths, confirmed, recovered and
-#' vaccine data from John Hopkins
-#'
-#' @importFrom magrittr %>%
-#' @import dplyr
-#' @import ggplot2
-#' @importFrom utils download.file
-#' @importFrom utils tail
-#' @importFrom zoo rollapply
-#' @importFrom rlang :=
+#' vaccine data from John Hopkins, without change to regional data
 #'
 #' @export
 #'
-#' @examples #TODO
-getDataFromWeb <- function(destfolder = tempdir()) {
+getRawDataFromWeb <- function(destfolder = tempdir()) {
   data_file_deaths <- "time_series_covid19_deaths_global.csv"
   data_file_recovered <- "time_series_covid19_recovered_global.csv"
   data_file_confirmed <- "time_series_covid19_confirmed_global.csv"
@@ -108,7 +100,7 @@ getDataFromWeb <- function(destfolder = tempdir()) {
   ##vaccine data
   try(
     master_data_raw_vaccine <-  readr::read_csv(paste0(c(destfolder,data_file_vaccines),collapse ="\\"))
-    )
+  )
   if (exists("master_data_raw_vaccine")) {
     master_data_vaccine  <- master_data_raw_vaccine
   }
@@ -122,6 +114,29 @@ getDataFromWeb <- function(destfolder = tempdir()) {
   if (exists("master_data_vaccine")) {
     master_data <- left_join(master_data,master_data_vaccine)
   }
+  return(master_data)
+}
+
+#' Gets data from web
+#'
+#' @param destfolder destination folder for downloaded files.
+#'
+#' @return master_data data frame containing deaths, confirmed, recovered and
+#' vaccine data from John Hopkins with missing country wide data added
+#'
+#' @importFrom magrittr %>%
+#' @import dplyr
+#' @import ggplot2
+#' @importFrom utils download.file
+#' @importFrom utils tail
+#' @importFrom zoo rollapply
+#' @importFrom rlang :=
+#'
+#' @export
+#'
+#' @examples #TODO
+getDataFromWeb <- function(destfolder = tempdir()) {
+  master_data <- getRawDataFromWeb (destfolder)
 
   master_data <- master_data %>%
     addMissingCountryWideData()
@@ -199,7 +214,7 @@ addPopulationData <- function(master_data) {
 #'
 #' @param JH_Data dataframe containing expected John Hopkins data
 #'
-#' @return datafram containing expected John Hopkins data with country wide
+#' @return dataframe containing expected John Hopkins data with country wide
 #' data added for countries that have only regional data - currently Canada,
 #' Australia and China
 #'
@@ -218,16 +233,28 @@ addMissingCountryWideData <- function(JH_Data) {
     select(Country_Region) %>%
     unique()
 
-  curr_names <- c("Province_State", "Country_Region", "Lat", "Long",
-                  "Deaths", "Confirmed", "Recovered", "Doses_admin", "People_partially_vaccinated",
-                  "People_fully_vaccinated", "Report_Date_String", "UID")
+  curr_names <- c("Province_State", "Country_Region", "Lat", "Long", "Date",
+                  "Deaths", "Confirmed", "Recovered", "UID", "Doses_admin", "People_at_least_one_dose")
+
+  non_grouping_names <- curr_names[!curr_names %in% c("Country_Region")]
+
+  summarise_names <- c("Deaths", "Confirmed", "Recovered", "Doses_admin", "People_at_least_one_dose")
+  #as checked on 5/12/2022
+
+  # curr_names <- c("Province_State", "Country_Region", "Lat", "Long",
+  #                 "Deaths", "Confirmed", "Recovered", "Doses_admin", "People_partially_vaccinated",
+  #                 "People_fully_vaccinated", "Report_Date_String",
+  #                 "UID") #old version
 
   JH_Data_countrylevel_for_regionalonly <- JH_Data %>%
     filter(Country_Region %in% unique(regional_only$Country_Region)) %>%
-    group_by(across(-c("Province_State","Lat","Long", "Report_Date_String","UID", "Deaths", "Confirmed", "Recovered", "Doses_admin", "People_partially_vaccinated",
-                       "People_fully_vaccinated"))) %>%
+    group_by(across(-non_grouping_names
+      # -c("Province_State","Lat","Long", "Report_Date_String",
+      #                  "UID", "Deaths", "Confirmed", "Recovered", "Doses_admin", "People_partially_vaccinated",
+      #                  "People_fully_vaccinated")
+                    )) %>%
     #group_by(c("Province_State", "Date")) %>%
-    summarise_at(.vars = c("Deaths", "Confirmed", "Recovered", "Doses_admin", "People_partially_vaccinated","People_fully_vaccinated"),
+    summarise_at(.vars = summarise_names, #c("Deaths", "Confirmed", "Recovered", "Doses_admin", "People_partially_vaccinated","People_fully_vaccinated"),
                  .funs = function(x) {sum(x,na.rm = TRUE)}
     )
 
@@ -272,8 +299,7 @@ addCalculatedVariables <- function(master_data) {
     mutate(Increase_Weighted_Confirmed = Weighted_Confirmed - lag(Weighted_Confirmed,1)) %>%
     mutate(Increase_Weighted_Confirmed_Avg = rollapply(data=Increase_Weighted_Confirmed,FUN=mean,width=lagvaluedays,fill=NA,align="right")) %>%
     mutate(Increase_Weighted_Confirmed_Avg_Avg = rollapply(data=Increase_Weighted_Confirmed_Avg,FUN=mean,width=lagvaluedays,fill=NA,align="right")) %>%
-    mutate(People_fully_vaccinated_Perc = 100*People_fully_vaccinated/Population) %>%
-    mutate(People_partially_vaccinated_Perc = 100*People_partially_vaccinated/Population) %>%
+    mutate(People_at_least_one_dose_Perc = 100*People_at_least_one_dose/Population) %>%
     ungroup()
 
   #new data not yet confirmed if useful
