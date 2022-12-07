@@ -236,7 +236,7 @@ addMissingCountryWideData <- function(JH_Data) {
   curr_names <- c("Province_State", "Country_Region", "Lat", "Long", "Date",
                   "Deaths", "Confirmed", "Recovered", "UID", "Doses_admin", "People_at_least_one_dose")
 
-  non_grouping_names <- curr_names[!curr_names %in% c("Country_Region")]
+  non_grouping_names <- curr_names[!curr_names %in% c("Country_Region", "Date")]
 
   summarise_names <- c("Deaths", "Confirmed", "Recovered", "Doses_admin", "People_at_least_one_dose")
   #as checked on 5/12/2022
@@ -339,11 +339,21 @@ JHGetdata_CountryLevel <- function(JH_Data,CountryList,VarName) {
   # data available. therefore this needs to be refined
 
   thedata <- JH_Data %>%
-    filter(Date>lubridate::ymd("20200315")) %>%
+    #filter(Date>lubridate::ymd("20200315")) %>%
     filter(Country_Region %in% CountryList)
 
   thedata <- thedata %>%
     filter(is.na(Province_State)) #added 20211228 to deal with pop count bug
+
+  #remove duplication if it exists
+  thedata_dupeinfo <- thedata %>%
+    select(Country_Region,Date,!!as.name(VarName)) %>%
+    mutate(dupe = duplicated(.))
+
+  thedata <- thedata  %>%
+    dplyr::bind_cols(thedata_dupeinfo %>% select(dupe)) %>%
+    filter(!dupe) %>%
+    select(-dupe)
 
   thedata <- thedata  %>%
     filter(!is.na(!!as.name(VarName))) %>%
