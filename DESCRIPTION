@@ -1,7 +1,7 @@
 Package: JHCovidHelpers
 Type: Package
 Title: Help functions for John Hopkins Covid Data 
-Version: 0.2.0
+Version: 0.3.0
 Author: Nicolas Vecchione
 Maintainer: Nicolas Vecchione <cuisquare@gmail.com>
 Description: provides functions to extract fresh data, tidy data, provide relevant calcuated variables and plotting helpers. 
